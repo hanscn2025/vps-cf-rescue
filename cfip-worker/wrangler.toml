@@ -1,0 +1,12 @@
+name = "cfip"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# 网页用的域名（workers.dev 在国内基本打不开）
+# routes = [{ pattern = "cfip.example.com", custom_domain = true }]
+
+rules = [{ type = "Text", globs = ["**/*.html"], fallthrough = true }]
+
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_KV_ID"

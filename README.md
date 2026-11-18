@@ -107,3 +107,20 @@ echo "17 */6 * * * root /usr/bin/python3 /root/cf-sub-optimize.py >> /var/log/cf
 **3. 在客户端里添加订阅**
 
 浏览器打开 `https://sub.example.com/<TOKEN>`，页面上有订阅地址和二维码。在 v2rayN 里：订阅分组 → 添加，粘贴订阅地址，设置自动更新间隔。
+
+## 可选：网页版优选（cfip-worker + cf-ip-pool.py）
+
+一个所有人都能用的网页：打开网页，浏览器就在用户**自己的网络**上测一批 Cloudflare IP。用户粘贴自己的节点（vless / vmess / trojan，WS、XHTTP、gRPC、HTTPUpgrade + TLS），网页把节点地址换成最快的几个 IP，SNI 和 Host 保持原域名不变。最后一键复制，在 v2rayN 里按 Ctrl+V 导入即可。
+
+测速和生成链接都在浏览器里完成，节点信息不会上传。
+
+- **cfip-worker/**：网页本身，以及候选 IP 池的存储。部署方法和 sub-worker 一样：填 KV id 和 routes，执行 `wrangler secret put PUSH_KEY`，然后 `wrangler deploy`。
+- **cf-ip-pool.py**：在 VPS 上每天运行一次。随机抽 1500 个 Cloudflare IP，用你的一个橙色云域名逐个验证，确实能转发网站的才放进候选池，然后推送给网页。配置文件是 `/root/.cfip.env`，需要填 `CFIP_URL`、`PUSH_KEY`、`HOST` 三项。
+
+加定时任务，每天 3:40 运行：
+
+```bash
+echo "40 3 * * * root /usr/bin/python3 /root/cf-ip-pool.py >> /var/log/cf-ip-pool.log 2>&1" > /etc/cron.d/cf-ip-pool
+```
+
+测速时必须关闭代理（包括 TUN 模式），网页会自动检测并提示。

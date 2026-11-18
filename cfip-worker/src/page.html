@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CF 优选 IP</title>
+<meta name="description" content="在你自己的网络上测出最快的 Cloudflare IP，一键换到你的节点上">
+<style>
+:root{--bg:#f6f6f3;--fg:#1c1c1a;--mute:#6d6d67;--card:#fff;--line:#e3e3dd;--acc:#2563eb;--acc-fg:#fff;--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--soft:#eef2ff;--code:#f2f2ee}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#151514;--fg:#ecece9;--mute:#9b9b95;--card:#1e1e1c;--line:#32322f;--acc:#6b9bff;--acc-fg:#0b1020;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--soft:#1d2540;--code:#262624}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:24px;margin:0}
+.lead{color:var(--mute);margin:4px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:16px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--acc);font-size:13px;font-weight:600}
+.mute{color:var(--mute);font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sp{flex:1}
+button{font:inherit;font-size:14px;padding:8px 14px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg);cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:var(--acc-fg)}
+button:disabled{opacity:.5;cursor:default}
+textarea,select{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg)}
+select{width:auto;font-family:inherit;font-size:14px;padding:6px 8px}
+textarea{resize:vertical}
+.status{display:flex;gap:10px;align-items:flex-start}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:7px;flex:none;background:var(--mute)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+.bar{height:6px;background:var(--code);border-radius:3px;overflow:hidden;margin:10px 0 4px}
+.bar>i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:500}
+td.num{font-variant-numeric:tabular-nums}
+.msgs{margin:8px 0 0;padding:0;list-style:none;font-size:13px}
+.msgs li{padding:2px 0}
+.ok-t{color:var(--ok)}.warn-t{color:var(--warn)}.bad-t{color:var(--bad)}
+#qr{background:#fff;padding:10px;border-radius:10px;display:inline-block;margin-top:10px}
+#qr:empty{display:none}
+details{margin-top:8px}summary{cursor:pointer;font-size:14px}
+details p,details li{font-size:14px;color:var(--mute)}
+code{background:var(--code);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.hide{display:none!important}
+label{font-size:14px;display:inline-flex;gap:6px;align-items:center}
+</style>
+</head>
+<body>
+<main>
+<h1>CF 优选 IP</h1>
+<p class="lead">在你自己的网络上测出最快的 Cloudflare IP，一键换到你的节点上。测速和生成链接都在你的浏览器里完成，节点信息不会上传。</p>
+
+<section class="card">
+  <h2><span class="n">1</span>网络检测</h2>
+  <div class="status"><span class="dot" id="envDot"></span><div><div id="envText">检测中…</div><div class="mute" id="envSub"></div></div></div>
+  <div class="row hide" id="envForce" style="margin-top:10px"><button id="forceBtn">我知道，仍然测速</button></div>
+</section>
+
+<section class="card">
+  <h2><span class="n">2</span>测速</h2>
+  <div class="row"><div class="mute sp" id="poolText">正在加载候选 IP…</div><button class="pri" id="testBtn" disabled>开始测速</button></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="mute" id="testText">打开页面会自动测速，大约 20 秒。</div>
+  <table id="resTable" class="hide"><thead><tr><th>#</th><th>IP</th><th>耗时</th><th>成功率</th></tr></thead><tbody id="resBody"></tbody></table>
+</section>
+
+<section class="card">
+  <h2><span class="n">3</span>你的节点</h2>
+  <textarea id="nodes" rows="4" spellcheck="false" placeholder="粘贴走 Cloudflare 的节点链接，一行一个，支持 vless:// vmess:// trojan://"></textarea>
+  <div class="row" style="margin-top:8px"><label><input type="checkbox" id="remember" checked>记住节点（只保存在这个浏览器里）</label></div>
+  <ul class="msgs" id="nodeMsgs"></ul>
+</section>
+
+<section class="card">
+  <h2><span class="n">4</span>生成结果</h2>
+  <div class="row">
+    <label>用最快的 <select id="count"><option>3</option><option selected>5</option><option>8</option><option>10</option></select> 个 IP</label>
+    <label><input type="checkbox" id="keepOrig" checked>保留原节点</label>
+  </div>
+  <textarea id="out" rows="6" readonly spellcheck="false" style="margin-top:10px" placeholder="测速完成、粘贴节点后，这里会出现新的节点链接"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button class="pri" id="copyBtn" disabled>复制全部</button>
+    <select id="qrSel" class="hide"></select>
+    <span class="mute" id="copyText"></span>
+  </div>
+  <div id="qr"></div>
+  <details>
+    <summary>怎么添加到客户端</summary>
+    <ul>
+      <li><b>v2rayN（Windows）</b>：点“复制全部”，回到 v2rayN 主界面按 <code>Ctrl+V</code>，所有节点一次导入。导入后全选按 <code>Ctrl+R</code> 测真连接延迟，挑最低的用。VLESS 的内核要选 Xray。</li>
+      <li><b>v2rayNG（安卓）</b>：复制后点右上角 <code>+</code> → 从剪贴板导入。</li>
+      <li><b>Shadowrocket（iOS）</b>：复制后打开 App 会自动识别剪贴板；也可以用上面的二维码逐个扫。</li>
+      <li>测出来的 IP 会变化，觉得慢了就回来重新测一次、重新导入。</li>
+    </ul>
+  </details>
+</section>
+
+<section class="card">
+  <h2>常见问题</h2>
+  <details><summary>为什么要关掉代理再测？</summary><p>测的是“你家网络 → Cloudflare”这一段。开着代理（包括 TUN/增强模式）测，量到的是代理线路，结果没有意义。测完把新节点导入后再打开代理即可。</p></details>
+  <details><summary>什么样的节点能用？</summary><p>必须是已经走 Cloudflare 的节点：域名开了橙色云，传输方式是 WebSocket、XHTTP、gRPC、HTTPUpgrade 之一，并且开了 TLS。VLESS + Reality、直连 TCP 的节点不能走 Cloudflare，换 IP 也没用。</p></details>
+  <details><summary>原理是什么？</summary><p>Cloudflare 的每个 IP 都能接入所有走 Cloudflare 的网站。客户端连到哪个 IP 都行，只要 SNI 和 Host 还是你的域名。本页在你的网络上测出连接最快的几个 IP，把它们写进节点的“地址”，SNI 和 Host 保持原来的域名。</p></details>
+  <details><summary>节点信息安全吗？</summary><p>解析和替换都在本页的 JavaScript 里完成，不会发给任何服务器。勾选“记住节点”时只存在你这个浏览器的本地存储里。唯一的网络请求是：检测网络、加载候选 IP、对候选 IP 测速，以及通过 Cloudflare DNS 查询你节点的域名是否开了橙色云。</p></details>
+  <details><summary>“耗时”和客户端里的延迟为什么不一样？</summary><p>这里测的是和 Cloudflare 建立连接的时间（大约两个来回），客户端测的是经过节点访问网站的完整时间，两者不能直接比较，只用来给 IP 排序。</p></details>
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+const CF_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+const CF_V4 = ["173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18",
+  "190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13",
+  "104.24.0.0/14","172.64.0.0/13","131.0.72.0/22"];
+const OK_NET = ["ws", "xhttp", "splithttp", "grpc", "httpupgrade", "h2", "http"];
+
+let pool = [], results = [], envOk = false, testing = false;
+
+/* ---------- 工具 ---------- */
+const ipNum = (ip) => ip.split(".").reduce((a, x) => a * 256 + +x, 0);
+function inCf(ip) {
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return false;
+  const n = ipNum(ip);
+  return CF_V4.some((c) => { const [b, m] = c.split("/"); const size = 2 ** (32 - m); const s = ipNum(b); return n >= s && n < s + size; });
+}
+const isIp = (h) => /^\d+\.\d+\.\d+\.\d+$/.test(h) || h.includes(":");
+const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
+function b64decode(s) {
+  s = s.trim().replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const bin = atob(s);
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+function b64encode(s) {
+  const bytes = new TextEncoder().encode(s);
+  let bin = ""; bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return btoa(bin);
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ---------- 1. 网络检测 ---------- */
+async function checkEnv() {
+  try {
+    const t = await fetch("/cdn-cgi/trace", { cache: "no-store" }).then((r) => r.text());
+    const kv = Object.fromEntries(t.trim().split("\n").map((l) => l.split("=")));
+    if (kv.loc === "CN") {
+      envOk = true;
+      $("envDot").className = "dot ok";
+      $("envText").textContent = "直连正常，可以测速";
+      $("envSub").textContent = `你的出口 IP：${kv.ip}（中国）`;
+    } else {
+      $("envDot").className = "dot warn";
+      $("envText").textContent = "检测到你的流量从国外出去，可能开着代理";
+      $("envSub").textContent = `出口 IP：${kv.ip}（${kv.loc}）。请先关闭代理（包括 TUN/增强模式）再刷新本页；如果你本来就在国外，可以继续。`;
+      $("envForce").classList.remove("hide");
+    }
+  } catch (e) {
+    $("envDot").className = "dot bad";
+    $("envText").textContent = "网络检测失败";
+    $("envSub").textContent = String(e);
+  }
+}
+
+/* ---------- 2. 测速 ---------- */
+async function loadPool() {
+  try {
+    const d = await fetch("/pool.json").then((r) => r.json());
+    pool = d.ips || [];
+    const age = d.time ? Math.round((Date.now() - d.time) / 3600000) : null;
+    $("poolText").textContent = pool.length
+      ? `候选 IP ${pool.length} 个（均已验证可用${age != null ? `，${age < 1 ? "1 小时内" : age + " 小时前"}更新` : ""}）`
+      : "候选 IP 池为空，请稍后再来";
+  } catch (e) { $("poolText").textContent = "候选 IP 加载失败：" + e; }
+  $("testBtn").disabled = !pool.length;
+}
+
+// 对一个 IP 计时一次：浏览器直接用 HTTPS 连 IP，证书对不上会报错，
+// 但报错发生在 TCP 连接 + TLS 握手之后，所以耗时 ≈ 2 个来回，可以用来比较快慢。
+async function probe(ip, timeout) {
+  const t0 = performance.now();
+  try {
+    await fetch(`https://${ip}/cdn-cgi/trace?r=${Math.random().toString(36).slice(2)}`,
+      { mode: "no-cors", cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(timeout) });
+  } catch (e) {
+    if (e.name === "TimeoutError" || e.name === "AbortError") return null;
+  }
+  const ms = performance.now() - t0;
+  return ms < 5 ? null : ms;  // 5ms 以内的“回应”不可能来自 Cloudflare，多半是本地拦截
+}
+
+async function runPool(items, worker, conc, onDone) {
+  let i = 0;
+  const next = async () => { while (i < items.length) { const it = items[i++]; await worker(it); onDone(); } };
+  await Promise.all(Array.from({ length: conc }, next));
+}
+
+function pickCandidates(n) {
+  const seen = new Set(), out = [];
+  for (const ip of shuffle([...pool])) {
+    const k = ip.split(".").slice(0, 3).join(".");
+    if (seen.has(k)) continue;
+    seen.add(k); out.push(ip);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+
+function score(r) {
+  const ok = r.times.length, tot = r.tries;
+  if (!ok) return Infinity;
+  return median(r.times) + (1 - ok / tot) * 1000;
+}
+
+async function runTest() {
+  if (testing || !pool.length) return;
+  testing = true; $("testBtn").disabled = true;
+  const cands = pickCandidates(100);
+  const map = new Map(cands.map((ip) => [ip, { ip, times: [], tries: 0 }]));
+  const total = cands.length * 2 + 25 * 4;
+  let done = 0;
+  const tick = () => { done++; $("bar").style.width = Math.min(100, (done / total) * 100) + "%"; };
+  $("testText").textContent = "第一轮：粗测 " + cands.length + " 个 IP…";
+  // 第一轮：每个 IP 测 2 次
+  await runPool(cands.flatMap((ip) => [ip, ip]), async (ip) => {
+    const r = map.get(ip); r.tries++;
+    const ms = await probe(ip, 4000); if (ms != null) r.times.push(ms);
+  }, 12, tick);
+  // 第二轮：前 25 名再测 4 次
+  const top = [...map.values()].filter((r) => r.times.length).sort((a, b) => score(a) - score(b)).slice(0, 25);
+  $("testText").textContent = "第二轮：精测前 " + top.length + " 名…";
+  await runPool(top.flatMap((r) => [r.ip, r.ip, r.ip, r.ip]), async (ip) => {
+    const r = map.get(ip); r.tries++;
+    const ms = await probe(ip, 4000); if (ms != null) r.times.push(ms);
+  }, 6, tick);
+  $("bar").style.width = "100%";
+
+  results = top.filter((r) => r.times.length >= 4).sort((a, b) => score(a) - score(b));
+  const alive = [...map.values()].filter((r) => r.times.length).length;
+  if (!results.length) {
+    $("testText").innerHTML = `<span class="bad-t">没有测到可用的 IP</span>（${alive}/${cands.length} 有响应）。请确认已关闭代理后重试。`;
+  } else {
+    $("testText").textContent = `测完了：${cands.length} 个 IP 里 ${alive} 个有响应，下面是最快的 ${Math.min(10, results.length)} 个。`;
+  }
+  renderResults();
+  store.set("cfip.results", JSON.stringify({ time: Date.now(), results: results.slice(0, 10) }));
+  testing = false; $("testBtn").disabled = false; $("testBtn").textContent = "重新测速";
+  generate();
+}
+
+function renderResults() {
+  const body = $("resBody");
+  body.textContent = "";
+  results.slice(0, 10).forEach((r, i) => {
+    const tr = document.createElement("tr");
+    const cells = [i + 1, r.ip, Math.round(median(r.times)) + " ms", `${r.times.length}/${r.tries}`];
+    cells.forEach((c, j) => { const td = document.createElement("td"); td.textContent = c; if (j !== 1) td.className = "num"; tr.appendChild(td); });
+    body.appendChild(tr);
+  });
+  $("resTable").classList.toggle("hide", !results.length);
+}
+
+/* ---------- 3. 解析节点 ---------- */
+function parseNode(line) {
+  line = line.trim();
+  if (!line) return null;
+  const m = line.match(/^(vmess|vless|trojan):\/\//i);
+  if (!m) return { err: "不认识的格式（只支持 vless:// vmess:// trojan://）", raw: line };
+  const scheme = m[1].toLowerCase();
+
+  if (scheme === "vmess") {
+    let o;
+    try { o = JSON.parse(b64decode(line.slice(8))); } catch (e) { return { err: "vmess 链接解析失败", raw: line }; }
+    const host = (o.host || "").split(",")[0].trim() || o.sni || (!isIp(o.add) ? o.add : "");
+    const net = (o.net || "tcp").toLowerCase();
+    const r = { scheme, raw: line, name: o.ps || host, host, port: +o.port, net, tls: (o.tls || "") === "tls", obj: o };
+    return check(r);
+  }
+
+  const re = /^(vless|trojan):\/\/([^@]+)@(\[[^\]]+\]|[^:/?#]+):(\d+)([^?#]*)(\?[^#]*)?(#.*)?$/i;
+  const p = line.match(re);
+  if (!p) return { err: "链接格式不对", raw: line };
+  const q = new URLSearchParams((p[6] || "").slice(1));
+  const addr = p[3].replace(/^\[|\]$/g, "");
+  const sec = (q.get("security") || (scheme === "trojan" ? "tls" : "none")).toLowerCase();
+  if (sec === "reality") return { err: "这是 Reality 节点，不能走 Cloudflare", raw: line };
+  const host = q.get("host") || q.get("sni") || (!isIp(addr) ? addr : "");
+  let name = p[7] ? p[7].slice(1) : "";
+  try { name = decodeURIComponent(name); } catch (e) {}
+  const r = { scheme, raw: line, name: name || host, host, port: +p[4], net: (q.get("type") || "tcp").toLowerCase(),
+    tls: sec === "tls", user: p[2], path: p[5] || "", q };
+  return check(r);
+}
+
+function check(r) {
+  if (!r.tls) return { ...r, err: "没有开 TLS，不能优选（Cloudflare 节点必须用 TLS）" };
+  if (!OK_NET.includes(r.net)) return { ...r, err: `传输方式是 ${r.net}，不能走 Cloudflare（需要 ws / xhttp / grpc / httpupgrade）` };
+  if (!r.host || isIp(r.host)) return { ...r, err: "找不到节点的域名（SNI / Host / 地址都不是域名）" };
+  r.warn = [];
+  if (!CF_PORTS.includes(r.port)) r.warn.push(`端口 ${r.port} 不是 Cloudflare 支持的 HTTPS 端口（${CF_PORTS.join("、")}）`);
+  return r;
+}
+
+function withIp(n, ip, label) {
+  const name = `${n.name} | ${label}`;
+  if (n.scheme === "vmess") {
+    const o = { ...n.obj, add: ip, host: n.obj.host || n.host, sni: n.obj.sni || n.host, ps: name };
+    return "vmess://" + b64encode(JSON.stringify(o));
+  }
+  const q = new URLSearchParams(n.q);
+  if (!q.get("sni")) q.set("sni", n.host);
+  if (!q.get("host") && n.net !== "grpc") q.set("host", n.host);
+  return `${n.scheme}://${n.user}@${ip}:${n.port}${n.path}?${q.toString()}#${encodeURIComponent(name)}`;
+}
+
+let parsed = [];
+const dnsCache = {};
+async function onNodesChange() {
+  const text = $("nodes").value;
+  if ($("remember").checked) store.set("cfip.nodes", text); else store.del("cfip.nodes");
+  parsed = text.split(/\r?\n/).map(parseNode).filter(Boolean);
+  const ul = $("nodeMsgs");
+  ul.textContent = "";
+  for (const n of parsed) {
+    const li = document.createElement("li");
+    if (n.err) { li.className = "bad-t"; li.textContent = "✗ " + (n.name || n.raw.slice(0, 40)) + "：" + n.err; }
+    else {
+      li.className = n.warn.length ? "warn-t" : "ok-t";
+      li.textContent = `✓ ${n.name}（${n.net} + TLS，域名 ${n.host}）` + (n.warn.length ? "；注意：" + n.warn.join("；") : "");
+      checkCf(n.host, li);
+    }
+    ul.appendChild(li);
+  }
+  generate();
+}
+
+async function checkCf(host, li) {
+  try {
+    if (!(host in dnsCache)) {
+      const d = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=A`,
+        { headers: { accept: "application/dns-json" } }).then((r) => r.json());
+      dnsCache[host] = (d.Answer || []).filter((a) => a.type === 1).map((a) => a.data);
+    }
+    const ips = dnsCache[host];
+    if (ips.length && !ips.some(inCf)) {
+      li.className = "warn-t";
+      li.textContent += `；注意：${host} 解析到 ${ips[0]}，不是 Cloudflare 的 IP，可能没开橙色云，换 IP 不会生效`;
+    }
+  } catch (e) { /* 查不到就不提示 */ }
+}
+
+/* ---------- 4. 生成 ---------- */
+let outLinks = [];
+function generate() {
+  const good = parsed.filter((n) => !n.err);
+  const k = +$("count").value;
+  outLinks = [];
+  if (good.length && results.length) {
+    for (const n of good) {
+      results.slice(0, k).forEach((r, i) => outLinks.push({ name: `${n.name} | 优选${i + 1}`, link: withIp(n, r.ip, `优选${i + 1}`) }));
+      if ($("keepOrig").checked) outLinks.push({ name: `${n.name}（原节点）`, link: n.raw });
+    }
+  }
+  $("out").value = outLinks.map((x) => x.link).join("\n");
+  $("copyBtn").disabled = !outLinks.length;
+  $("copyText").textContent = !good.length ? "" : !results.length ? "等测速完成…" : `共 ${outLinks.length} 个节点`;
+  const sel = $("qrSel");
+  sel.textContent = "";
+  outLinks.forEach((x, i) => { const o = document.createElement("option"); o.value = i; o.textContent = "二维码：" + x.name; sel.appendChild(o); });
+  sel.classList.toggle("hide", !outLinks.length);
+  drawQr();
+}
+
+function drawQr() {
+  const box = $("qr"); box.textContent = "";
+  const x = outLinks[+$("qrSel").value || 0];
+  if (!x || typeof QRCode === "undefined") return;
+  try { new QRCode(box, { text: x.link, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L }); } catch (e) { box.textContent = ""; }
+}
+
+async function copyAll() {
+  const text = $("out").value;
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { $("out").select(); document.execCommand("copy"); }
+  $("copyText").textContent = `已复制 ${outLinks.length} 个节点，去客户端里粘贴导入`;
+}
+
+/* ---------- 启动 ---------- */
+$("nodes").value = store.get("cfip.nodes") || "";
+$("nodes").addEventListener("input", onNodesChange);
+$("remember").addEventListener("change", onNodesChange);
+$("count").addEventListener("change", () => { store.set("cfip.count", $("count").value); generate(); });
+$("keepOrig").addEventListener("change", generate);
+$("qrSel").addEventListener("change", drawQr);
+$("copyBtn").addEventListener("click", copyAll);
+$("testBtn").addEventListener("click", runTest);
+$("forceBtn").addEventListener("click", () => { envOk = true; $("envForce").classList.add("hide"); runTest(); });
+if (store.get("cfip.count")) $("count").value = store.get("cfip.count");
+
+(async () => {
+  onNodesChange();
+  await Promise.all([checkEnv(), loadPool()]);
+  if (envOk && pool.length) runTest();
+  else $("testText").textContent = envOk ? "" : "关闭代理后刷新页面，会自动开始测速。";
+})();
+</script>
+</body>
+</html>
