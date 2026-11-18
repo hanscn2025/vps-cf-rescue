@@ -1,0 +1,19 @@
+{
+  "name": "cf-sub",
+  "version": "1.0.0",
+  "description": "Cloudflare 优选 IP 订阅 Worker",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "^4.164.0"
+  },
+  "allowScripts": {
+    "workerd@1.20261117.1": true,
+    "esbuild@0.28.2": true,
+    "sharp@0.35.5": true
+  }
+}
